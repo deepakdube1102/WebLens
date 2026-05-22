@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RefreshCw, Printer, AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Copy, Check, Scale, Download, BarChart3, List } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 
@@ -49,7 +50,7 @@ export default function Report({ data, onBack, onReRun, onNavigateCompare }) {
   const [recFilter, setRecFilter]     = useState('All');
   const [showChart, setShowChart]     = useState(true);
 
-  const { url, domain, analyzedAt, isHttps, scores, metrics, audits, recommendations } = data;
+  const { url, domain, analyzedAt, isHttps, scores, metrics, audits, recommendations, dataSource, fallbackReason } = data;
 
   const handleCopy = (id, code) => {
     navigator.clipboard.writeText(code);
@@ -116,6 +117,34 @@ export default function Report({ data, onBack, onReRun, onNavigateCompare }) {
           <h1 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: 28, color: '#000' }}>WebLens Audit Report</h1>
           <p style={{ fontSize: 14, color: '#6b7280' }}>{url} · {analyzedAt} · Score: {scores.overall}/100</p>
         </div>
+
+        {/* ── Simulation Warning Banner ── */}
+        {dataSource === 'simulated' && (
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 14,
+            padding: '14px 20px', borderRadius: 14, marginBottom: 20,
+            background: 'rgba(245,158,11,0.08)',
+            border: '1px solid rgba(245,158,11,0.28)',
+          }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <AlertTriangle style={{ width: 16, height: 16, color: '#f59e0b' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24', marginBottom: 3 }}>
+                Estimated Data — Live Audit Unavailable
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
+                {fallbackReason || 'The live Google PageSpeed API could not complete the audit for this URL. Scores below are estimated based on domain type and industry benchmarks.'}
+                {' '}Switch to <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Simulation mode</strong> in Settings to avoid this message.
+              </p>
+            </div>
+            <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', padding: '4px 10px', borderRadius: 999 }}>
+                SIMULATED
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* ── Score Grid ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, marginBottom: 20 }} className="grid-cols-1 lg:grid-cols-auto">

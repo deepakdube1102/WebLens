@@ -30,17 +30,22 @@ export const runPageSpeedAudit = async (url, apiKey = '', mode = 'live') => {
       endpoint += `&key=${apiKey}`;
     }
 
-    // Set an AbortController with an 8-second timeout to prevent requests from hanging indefinitely
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(endpoint, { signal: controller.signal });
-    clearTimeout(timeoutId);
+    // No JS-imposed timeout — the Google Lighthouse API can legitimately take 30-90 seconds
+    // for complex sites. Let the browser manage its own network timeout.
+    const response = await fetch(endpoint);
     if (!response.ok) {
       throw new Error(`Google API returned status ${response.status}`);
     }
 
     const data = await response.json();
+
+    // Explicitly check for a Lighthouse-level error embedded in a 200 response
+    // (e.g. "Lighthouse returned error: Something went wrong" for blocked sites)
+    if (data.error) {
+      const msg = data.error.message || 'Lighthouse error';
+      throw new Error(msg);
+    }
+
     const lh = data.lighthouseResult;
 
     if (!lh || !lh.categories) {
@@ -215,6 +220,7 @@ export const runPageSpeedAudit = async (url, apiKey = '', mode = 'live') => {
     return {
       url,
       domain,
+      dataSource: 'live',
       analyzedAt: new Date().toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
@@ -236,8 +242,15 @@ export const runPageSpeedAudit = async (url, apiKey = '', mode = 'live') => {
     };
 
   } catch (error) {
-    console.warn("Live PageSpeed Audit failed, falling back to simulated data. Error details:", error.message);
-    // Silent fallback to our premium, domain-customized high-fidelity simulation engine
-    return await analyzeUrlWithSimulation(safeUrl);
+    // Determine the reason for fallback for UI display
+    const isLighthouseBlock = error.message?.toLowerCase().includes('lighthouse') ||
+                              error.message?.toLowerCase().includes('something went wrong');
+    const fallbackReason = isLighthouseBlock
+      ? 'This site blocks automated Lighthouse audits. Showing estimated data based on domain profile.'
+      : `Live API unavailable (${error.message}). Showing estimated data.`;
+
+    console.warn('Live PageSpeed Audit failed, falling back to simulated data. Reason:', error.message);
+    const simResult = await analyzeUrlWithSimulation(safeUrl);
+    return { ...simResult, dataSource: 'simulated', fallbackReason };
   }
 };
